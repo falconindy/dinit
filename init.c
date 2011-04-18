@@ -32,22 +32,6 @@ int rootflags = 0;
 int quiet = 0;
 
 /* utility */
-static char *xasprintf(const char *format, ...) { /* {{{ */ 
-  va_list p;
-  int r;
-  char *string_ptr;
-
-  va_start(p, format);
-  r = vasprintf(&string_ptr, format, p);
-  va_end(p);
-
-  if (r < 0) {
-    die("memory exhausted");
-  }
-
-  return string_ptr;
-} /* }}} */
-
 static void forkexecwait(char **argv) { /* {{{ */
   pid_t pid;
   int errsv, statloc;
@@ -72,30 +56,28 @@ static void forkexecwait(char **argv) { /* {{{ */
   return;
 } /* }}} */
 
-static const char *last_char_is(const char *s, int c) { /* {{{ */
-  const char *ss;
-
-  if (!s) {
-    return NULL;
-  }
-
-  for (ss = s; *ss; ss++);
-
-  return *--ss == c ? ss : NULL;
-} /* }}} */
-
-static char *concat_path_file(const char *path, const char *filename) { /* {{{ */
-  const char *lc;
+static char *concat_path(const char *path, const char *filename) { /* {{{ */
+  const char *ss, *lc;
+  char *concat;
+  int ret;
 
   if (!path) {
     path = "";
   }
 
-  lc = last_char_is(path, '/');
+  for (ss = path; *ss; ss++);
+  lc = (*--ss == '/' ? "" : "/");
+
   while (*filename == '/') {
     filename++;
   }
-  return xasprintf("%s%s%s", path, (lc == NULL ? "/" : ""), filename);
+
+  ret = asprintf(&concat, "%s%s%s", path, lc, filename);
+  if (ret < 0) {
+    return NULL;
+  }
+
+  return concat;
 } /* }}} */
 
 static char *sanitize_var(char *var) { /* {{{ */
@@ -144,7 +126,7 @@ static void delete_contents(const char *directory, dev_t rootdev) { /* {{{ */
         }
 
         /* Recurse to delete contents */
-        newdir = concat_path_file(directory, newdir);
+        newdir = concat_path(directory, newdir);
         delete_contents(newdir, rootdev);
         free(newdir);
       }
