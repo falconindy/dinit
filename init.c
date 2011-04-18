@@ -25,8 +25,9 @@
 #define err(...) {fprintf(stderr, "error" __VA_ARGS__);}
 #define die(...) {err(__VA_ARGS__); _exit(1);}
 
+#define TMPFS_FLAGS    MS_NOEXEC|MS_NODEV|MS_NOSUID
 #define UDEVD_PATH    "/sbin/udevd"
-#define CMDLINE_SIZE  2048           /* pulled from kernel source, specific to x86 */
+#define CMDLINE_SIZE  2048       /* from arch/x86/include/asm/setup.h */
 
 int rootflags = 0;
 int quiet = 0;
@@ -194,9 +195,9 @@ static void mount_setup(void) { /* {{{ */
   int ret;
 
   /* setup basic filesystems */
-  mount("proc", "/proc", "proc", MS_NOEXEC|MS_NODEV|MS_NOSUID, NULL);
-  mount("sys", "/sys", "sysfs", MS_NOEXEC|MS_NODEV|MS_NOSUID, NULL);
-  mount("tmpfs", "/run", "tmpfs", MS_NOEXEC|MS_NODEV|MS_NOSUID, "mode=1777,size=10M");
+  mount("proc", "/proc", "proc", TMPFS_FLAGS, NULL);
+  mount("sys", "/sys", "sysfs", TMPFS_FLAGS, NULL);
+  mount("tmpfs", "/run", "tmpfs", TMPFS_FLAGS, "mode=1777,size=10M");
 
   /* mountpoint for our eventual real root */
   mkdir("/new_root", 0755);
@@ -408,7 +409,7 @@ static void run_hooks() { /* {{{ */
       continue;
     }
 
-    for (hook = strtok(&line[6], ", \"\n"); hook; hook = strtok(NULL, ", \"\n")) {
+    for (hook = strtok(&line[6], " \"\n"); hook; hook = strtok(NULL, " \"\n")) {
       char path[PATH_MAX];
 
       snprintf(path, 4096, "hooks/%s", hook);
@@ -494,7 +495,8 @@ static char *find_init(void) { /* {{{ */
 
   snprintf(path, PATH_MAX, "/new_root%s", init);
   if (access(path, R_OK) != 0) {
-    err("root is mounted, but '%s' is not found! Bailing to a rescue shell. Good luck!\n", init);
+    err("root is mounted, but '%s' is not found! Bailing to a rescue shell."
+        "Good luck!\n", init);
     start_rescue_shell();
     msg("continuing... this will probably fail...\n");
   }
@@ -546,7 +548,8 @@ static int switch_root(char *argv[]) { /* {{{ */
   }
 
   statfs("/", &stfs); /* this never fails */
-  if ((unsigned)stfs.f_type != RAMFS_MAGIC && (unsigned)stfs.f_type != TMPFS_MAGIC) {
+  if ((unsigned)stfs.f_type != RAMFS_MAGIC &&
+      (unsigned)stfs.f_type != TMPFS_MAGIC) {
     die("root filesystem is not ramfs/tmpfs\n");
   }
 
@@ -572,9 +575,8 @@ static int switch_root(char *argv[]) { /* {{{ */
   /* exec real pid shady */
   execv(argv[0], argv);
   err("failed to execute '%s'\n", argv[0]);
-  fprintf(stderr, ":: This is the end. You've made it this far, but something has\n"
-                  ":: gone terribly wrong. Please file a bug report with as much\n"
-                  ":: info as possible.");
+  fprintf(stderr, ":: This is the end. Something has gone terribly wrong.\n"
+                  ":: Please file a detailed bug report.\n");
   _exit(EXIT_FAILURE);
 } /* }}} */
 
