@@ -35,7 +35,7 @@ int quiet = 0;
 /* utility */
 static void forkexecwait(char **argv) { /* {{{ */
   pid_t pid;
-  int errsv, statloc;
+  int statloc;
 
   pid = fork();
   if (pid == -1) {
@@ -44,6 +44,7 @@ static void forkexecwait(char **argv) { /* {{{ */
   }
 
   if (pid == 0) {
+    int errsv;
     execv(argv[0], argv);
     errsv = errno;
     fprintf(stderr, "failed to launch %s\n", argv[0]);
@@ -159,7 +160,7 @@ static void start_rescue_shell(void) { /* {{{ */
 
 } /* }}} */
 
-char *probe_fstype(const char *devname) { /* {{{ */
+static char *probe_fstype(const char *devname) { /* {{{ */
   int ret;
   char *fstype;
   blkid_probe pr;
@@ -227,9 +228,9 @@ static void put_cmdline(void) { /* {{{ */
   FILE *fp;
 
   /* a bit of pointer/var hell going on...
-   *   c = pointer along contens of /proc/cmdline
-   *   token = container for current token
-   *   tp = point along contents of token
+   *   c = pointer along contents of /proc/cmdline
+   *   token = container for current token being parsed
+   *   tp = pointer along contents of token
    */
 
   fp = fopen("/proc/cmdline", "r");
@@ -394,7 +395,7 @@ static void disable_hooks(void) { /* {{{ */
   free(list);
 } /* }}} */
 
-static void run_hooks() { /* {{{ */
+static void run_hooks(void) { /* {{{ */
   FILE *fp;
   char line[PATH_MAX];
   char *hook;
