@@ -567,16 +567,20 @@ static int switch_root(char *argv[]) { /* {{{ */
   dup2(0, 1);
   dup2(0, 2);
 
-  /* exec real pid1 */
+  /* exec real pid shady */
   execv(argv[0], argv);
-  die("can't execute '%s'\n", argv[0]);
+  err("failed to execute '%s'\n", argv[0]);
+  fprintf(stderr, ":: This is the end. You've made it this far, but something has\n"
+                  ":: gone terribly wrong. Please file a bug report with as much\n"
+                  ":: info as possible.");
+  _exit(EXIT_FAILURE);
 } /* }}} */
 
 int main(int argc, char *argv[]) {
   char *init;
   pid_t udevpid;
 
-  (void)argc;
+  (void)argc; /* poor unloved argc */
 
   /* need some actual error checking throughout here */
 
@@ -600,7 +604,7 @@ int main(int argc, char *argv[]) {
 
   argv[0] = init;
   switch_root(argv);
-  /* unreached! */
+  /* unreached */
   return 0;
 }
 
