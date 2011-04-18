@@ -67,15 +67,16 @@ static void forkexecwait(char **argv) { /* {{{ */
   return;
 } /* }}} */
 
-static char* last_char_is(const char *s, int c) { /* {{{ */ 
-  if (s && *s) {
-    size_t sz = strlen(s) - 1;
-    s += sz;
-    if ( (unsigned char)*s == c) {
-      return (char*)s;
-    }
+static const char *last_char_is(const char *s, int c) { /* {{{ */
+  const char *ss;
+
+  if (!s) {
+    return NULL;
   }
-  return NULL;
+
+  for (ss = s; *ss; ss++);
+
+  return *--ss == c ? ss : NULL;
 } /* }}} */
 
 static char *concat_path_file(const char *path, const char *filename) { /* {{{ */
