@@ -50,7 +50,7 @@ static char *xasprintf(const char *format, ...) { /* {{{ */
 
 static void forkexecwait(char **argv) { /* {{{ */
   pid_t pid;
-  int statloc;
+  int errsv, statloc;
 
   pid = fork();
   if (pid == -1) {
@@ -60,8 +60,13 @@ static void forkexecwait(char **argv) { /* {{{ */
 
   if (pid == 0) {
     execv(argv[0], argv);
+    errsv = errno;
+    fprintf(stderr, "failed to launch %s\n", argv[0]);
+    errno = errsv;
+    perror("");
   }
 
+  /* block for process exit */
   waitpid(pid, &statloc, 0);
 
   return;
@@ -80,7 +85,7 @@ static const char *last_char_is(const char *s, int c) { /* {{{ */
 } /* }}} */
 
 static char *concat_path_file(const char *path, const char *filename) { /* {{{ */
-  char *lc;
+  const char *lc;
 
   if (!path) {
     path = "";
@@ -90,7 +95,7 @@ static char *concat_path_file(const char *path, const char *filename) { /* {{{ *
   while (*filename == '/') {
     filename++;
   }
-  return xasprintf("%s%s%s", path, (lc==NULL ? "/" : ""), filename);
+  return xasprintf("%s%s%s", path, (lc == NULL ? "/" : ""), filename);
 } /* }}} */
 
 static char *sanitize_var(char *var) { /* {{{ */
@@ -155,29 +160,17 @@ static void delete_contents(const char *directory, dev_t rootdev) { /* {{{ */
 } /* }}} */
 
 static void start_rescue_shell(void) { /* {{{ */
-  pid_t bboxpid;
-  int statloc;
   char *bboxinstall[] = { "/bin/busybox", "--install", NULL };
   char *bboxlaunch[] = { "/bin/busybox", "ash", NULL };
 
   /* install symlinks */
-  if (fork() == 0) {
-    execv(bboxinstall[0], bboxinstall);
-    perror("failed to launch rescue shell: /bin/busybox");
-  }
+  forkexecwait(bboxinstall);
 
   /* set a prompt */
   putenv("PS1=[ramfs \\W]\\$ ");
 
   /* start the shell */
-  bboxpid = fork();
-  if (bboxpid == 0) {
-    execv(bboxlaunch[0], bboxlaunch);
-    perror("failed to launch rescue shell: /bin/busybox");
-  }
-
-  /* wait for the user to exit the shell */
-  waitpid(bboxpid, &statloc, 0);
+  forkexecwait(bboxlaunch);
 
 } /* }}} */
 
