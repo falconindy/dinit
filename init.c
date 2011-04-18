@@ -471,7 +471,7 @@ static void mount_root(void) { /* {{{ */
   }
 
   if (stat(root, &st) != 0) {
-    err("failed to stat root!");
+    err("failed to stat root!\n");
     return;
   }
 
@@ -502,7 +502,7 @@ static char *find_init(void) { /* {{{ */
     err("root is mounted, but '%s' is not found! Bailing to a rescue shell."
         "Good luck!\n", init);
     start_rescue_shell();
-    msg("continuing... this will probably fail...\n");
+    err("continuing... \n");
   }
 
   return init;
