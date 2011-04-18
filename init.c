@@ -25,7 +25,8 @@
 #define err(...) {fprintf(stderr, "error" __VA_ARGS__);}
 #define die(...) {err(__VA_ARGS__); _exit(1);}
 
-#define TMPFS_FLAGS    MS_NOEXEC|MS_NODEV|MS_NOSUID
+#define TMPFS_FLAGS   MS_NOEXEC|MS_NODEV|MS_NOSUID
+#define NEWROOT       "/new_root"
 #define UDEVD_PATH    "/sbin/udevd"
 #define CMDLINE_SIZE  2048       /* from arch/x86/include/asm/setup.h */
 
@@ -201,7 +202,7 @@ static void mount_setup(void) { /* {{{ */
   mount("tmpfs", "/run", "tmpfs", TMPFS_FLAGS, "mode=1777,size=10M");
 
   /* mountpoint for our eventual real root */
-  mkdir("/new_root", 0755);
+  mkdir(NEWROOT, 0755);
 
   /* ENODEV returned on non-existant FS */
   ret = mount("udev", "/dev", "devtmpfs", MS_NOSUID, "mode=0755,size=10M");
@@ -479,7 +480,7 @@ static void mount_root(void) { /* {{{ */
     return;
   }
 
-  if (mount(root, "/new_root", fstype, rootflags, NULL) != 0) {
+  if (mount(root, NEWROOT, fstype, rootflags, NULL) != 0) {
     err("failed to mount new root!\n");
   }
   free(fstype);
@@ -494,7 +495,7 @@ static char *find_init(void) { /* {{{ */
     init = "/sbin/init";
   }
 
-  snprintf(path, PATH_MAX, "/new_root%s", init);
+  snprintf(path, PATH_MAX, NEWROOT "%s", init);
   if (access(path, R_OK) != 0) {
     err("root is mounted, but '%s' is not found! Bailing to a rescue shell."
         "Good luck!\n", init);
@@ -531,13 +532,13 @@ static int switch_root(char *argv[]) { /* {{{ */
   /* this is mostly taken from busybox's util_linux/switch_root.c */
 
   /* Change to new root directory and verify it's a different fs */
-  chdir("/new_root");
+  chdir(NEWROOT);
   stat("/", &st); 
   rootdev = st.st_dev;
   stat(".", &st);
 
   if (st.st_dev == rootdev) {
-    die("nothing was mounted on /new_root!\n");
+    die("nothing was mounted on " NEWROOT "!\n");
   }
 
   /* Additional sanity checks: we're about to rm -rf /, so be REALLY SURE we
@@ -603,9 +604,9 @@ int main(int argc, char *argv[]) {
   kill_udev(udevpid);        /* shutdown udev in prep switch_root  */
 
   /* move mount points (fstype, options and flags are ignored) */
-  mount("/proc", "/new_root/proc", NULL, MS_MOVE,  NULL);
-  mount("/sys", "/new_root/sys", NULL, MS_MOVE, NULL);
-  mount("/run", "/new_root/run", NULL, MS_MOVE, NULL);
+  mount("/proc", NEWROOT "/proc", NULL, MS_MOVE,  NULL);
+  mount("/sys", NEWROOT "/sys", NULL, MS_MOVE, NULL);
+  mount("/run", NEWROOT "/run", NULL, MS_MOVE, NULL);
 
   argv[0] = init;
   switch_root(argv);
