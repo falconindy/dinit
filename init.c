@@ -373,6 +373,8 @@ static void load_early_modules(void) { /* {{{ */
 
 static void trigger_udev_events(void) { /* {{{ */
   char *argv[] = { "/sbin/udevadm", "trigger", "--action=add", NULL };
+
+  msg("triggering udev events...\n");
   forkexecwait(argv);
 } /* }}} */
 
