@@ -84,10 +84,12 @@ static char *sanitize_var(char *var) { /* {{{ */
   char *p;
 
   p = var;
-  if (isdigit(*p++)) { /* leading digit, can't use this */
+  if (!(isalpha(*p) || *p == '_')) {
+    /* invalid var name, can't use this */
     return NULL;
   }
 
+  p++;
   while (*p) {
     switch (*p) {
       case '-': /* fallthrough */
