@@ -341,34 +341,62 @@ static pid_t launch_udev(void) { /* {{{ */
   return pid;
 } /* }}} */
 
-static void load_early_modules(void) { /* {{{ */
+static void load_extra_modules(void) { /* {{{ */
+  FILE *fp;
   char *tok, *var;
   char **argv;
+  char line[PATH_MAX];
   int modcount = 2;
 
-  if (getenv("earlymodules") == NULL) {
-    return;
+  /* load early modules */
+  if (getenv("earlymodules") != NULL) {
+    argv = calloc(2, sizeof(argv));
+    *argv = "/sbin/modprobe";
+    *(argv + 1) = "-qa";
+
+    var = strdup(getenv("earlymodules"));
+    for (tok = strtok(var, ","); tok; tok = strtok(NULL, ",")) {
+      argv = realloc(argv, sizeof(argv) * ++modcount);
+      *(argv + (modcount - 1)) = tok;
+    }
+
+    if (modcount > 2) {
+      argv = realloc(argv, sizeof(argv) * ++modcount);
+      *(argv + (modcount - 1)) = NULL;
+      forkexecwait(argv);
+    }
+    free(argv);
   }
 
-  msg("Loading early modules\n");
+  /* load modules from /config */
+  fp = fopen("/config", "r");
+  if (fp) {
+    while (fgets(line, PATH_MAX, fp) != NULL) {
+      if (strncmp(line, "MODULES=", 8) == 0) {
+        argv = calloc(2, sizeof(argv));
+        *argv = "/sbin/modprobe";
+        *(argv + 1) = "-qa";
+        modcount = 2;
 
-  argv = calloc(2, sizeof(argv));
-  *(argv) = "/sbin/modprobe";
-  *(argv + 1) = "-qa";
+        for (tok = strtok(&line[9], " \"\n"); tok; tok = strtok(NULL, " \"\n")) {
+          argv = realloc(argv, sizeof(argv) * ++modcount);
+          *(argv + (modcount - 1)) = tok;
+        }
 
-  var = strdup(getenv("earlymodules"));
-  for (tok = strtok(var, ","); tok; tok = strtok(NULL, ",")) {
-    argv = realloc(argv, sizeof(argv) * ++modcount);
-    *(argv + (modcount - 2)) = tok;
+        /* make sure array wasn't empty */
+        if (modcount > 2) {
+          argv = realloc(argv, sizeof(argv) * ++modcount);
+          *(argv + (modcount - 1)) = NULL;
+          forkexecwait(argv);
+        }
+
+        free(argv);
+        break;
+      }
+    }
+    fclose(fp);
   }
 
-  /* null terminate */
-  argv = realloc(argv, sizeof(argv) * ++modcount);
-  *(argv + (modcount - 2)) = NULL;
-
-  forkexecwait(argv);
-
-  free(argv);
 } /* }}} */
 
 static void trigger_udev_events(void) { /* {{{ */
@@ -596,7 +624,7 @@ int main(int argc, char *argv[]) {
   put_cmdline();             /* parse cmdline and set environment */
   disable_modules();         /* blacklist modules passed in on cmdline */
   udevpid = launch_udev();   /* try to launch udev */
-  load_early_modules();      /* load modules passed in on cmdline */
+  load_extra_modules();      /* load modules passed in on cmdline */
   trigger_udev_events();     /* read and process uevent queue */
   disable_hooks();           /* delete hooks specified on cmdline */
   run_hooks();               /* run remaining hooks */
