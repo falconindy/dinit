@@ -22,7 +22,7 @@
 #include <blkid.h>
 
 #define msg(...) {if (!quiet) fprintf(stderr, ":: " __VA_ARGS__);}
-#define err(...) {fprintf(stderr, "error" __VA_ARGS__);}
+#define err(...) {fprintf(stderr, "error: " __VA_ARGS__);}
 #define die(...) {err(__VA_ARGS__); _exit(1);}
 
 #define TMPFS_FLAGS   MS_NOEXEC|MS_NODEV|MS_NOSUID
