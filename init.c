@@ -481,6 +481,9 @@ static void wait_for_root(void) { /* {{{ */
   }
 
   root = getenv("root");
+  if (!root) {
+    die("no root device was specified on command line!\n");
+  }
 
   msg("waiting up to %d seconds for %s ...\n", delay, root);
   while (delay--) {
@@ -499,52 +502,41 @@ static void wait_for_root(void) { /* {{{ */
 
 } /* }}} */
 
-static void mount_root(void) { /* {{{ */
+static int mount_root(void) { /* {{{ */
   char *root, *fstype;
-  struct stat st;
+  int ret = 1;
 
   root = getenv("root");
-  if (!root) {
-    err("root is undefined!\n");
-    return;
-  }
 
-  if (stat(root, &st) != 0) {
-    err("failed to stat root!\n");
-    return;
+  fstype = getenv("rootfstype");
+  if (fstype) {
+    return mount(root, NEWROOT, fstype, rootflags, NULL); 
   }
 
   fstype = probe_fstype(root);
-  if (!fstype) {
-    /* should never reach this */
-    err("zomg unknown FS!\n");
-    return;
+  if (!fstype) { /* still no fstype, we're out of ideas */
+    /* should hopefully never reach this */
+    err("the filesystem of the root device could not be determined!\n");
+    fprintf(stderr, "Try adding the rootfstype= parameter to the"
+        "kernel command line\n");
+    return ret;
   }
 
-  if (mount(root, NEWROOT, fstype, rootflags, NULL) != 0) {
-    err("failed to mount new root!\n");
-  }
+  ret = mount(root, NEWROOT, fstype, rootflags, NULL);
   free(fstype);
+
+  return ret;
 } /* }}} */
 
-static char *find_init(void) { /* {{{ */
-  char *init;
+static int set_init(void) { /* {{{ */
   char path[PATH_MAX];
 
-  init = getenv("init");
-  if (!init) {
-    init = "/sbin/init";
-  }
+  /* don't overwrite, but make sure something is set */
+  setenv("init", "/sbin/init", 0);
 
-  snprintf(path, PATH_MAX, NEWROOT "%s", init);
-  if (access(path, R_OK) != 0) {
-    err("root is mounted, but '%s' is not found! Bailing to a rescue shell."
-        "Good luck!\n", init);
-    start_rescue_shell();
-    err("continuing... \n");
-  }
-
-  return init;
+  /* existance check */
+  snprintf(path, PATH_MAX, NEWROOT "%s", getenv("init"));
+  return access(path, F_OK);
 } /* }}} */
 
 static void kill_udev(pid_t pid) { /* {{{ */
@@ -577,7 +569,8 @@ static int switch_root(char *argv[]) { /* {{{ */
 
   /* this is mostly taken from busybox's util_linux/switch_root.c */
 
-  /* Change to new root directory and verify it's a different fs */
+  /* change to new root directory and verify it's a different fs. In practice,
+   * this should never be a concern as we catch mount failing in mount_root */
   chdir(NEWROOT);
   stat("/", &st); 
   rootdev = st.st_dev;
@@ -591,14 +584,13 @@ static int switch_root(char *argv[]) { /* {{{ */
    * mean it. I could make this a CONFIG option, but I would get email from all
    * the people who WILL destroy their filesystems. */
   if (stat("/init", &st) != 0 || !S_ISREG(st.st_mode)) {
-    err("/init not found or not a regular file\n");
-    start_rescue_shell();
+    die("/init not found or not a regular file\n");
   }
 
   statfs("/", &stfs); /* this never fails */
   if ((unsigned)stfs.f_type != RAMFS_MAGIC &&
       (unsigned)stfs.f_type != TMPFS_MAGIC) {
-    die("root filesystem is not ramfs/tmpfs\n");
+    die("root filesystem is not ramfs/tmpfs!\n");
   }
 
   /* zap everything out of rootdev */
@@ -629,12 +621,9 @@ static int switch_root(char *argv[]) { /* {{{ */
 } /* }}} */
 
 int main(int argc, char *argv[]) {
-  char *init;
   pid_t udevpid;
 
   (void)argc; /* poor unloved argc */
-
-  /* need some actual error checking throughout here */
 
   mount_setup();             /* create early tmpfs mountpoints */
   put_cmdline();             /* parse cmdline and set environment */
@@ -646,8 +635,17 @@ int main(int argc, char *argv[]) {
   run_hooks();               /* run remaining hooks */
   check_for_break();         /* did the user request a shell? */
   wait_for_root();           /* ensure that root shows up */
-  mount_root();              /* this better work... */
-  init = find_init();        /* mounted something, now find init */
+
+  if (mount_root() != 0) {   /* this is what we're here for */
+    err("failed to mount the root device: %s\n", strerror(errno));
+    start_rescue_shell();
+  }
+
+  if (set_init() != 0) {     /* mounted something, now find init */
+    err("root device was mounted, but %s does not exist!\n", getenv("init"));
+    start_rescue_shell();
+  }
+
   kill_udev(udevpid);        /* shutdown udev in prep switch_root  */
 
   /* move mount points (fstype, options and flags are ignored) */
@@ -655,7 +653,7 @@ int main(int argc, char *argv[]) {
   mount("/sys", NEWROOT "/sys", NULL, MS_MOVE, NULL);
   mount("/run", NEWROOT "/run", NULL, MS_MOVE, NULL);
 
-  argv[0] = init;
+  argv[0] = getenv("init");
   switch_root(argv);
   /* unreached */
   return 0;
