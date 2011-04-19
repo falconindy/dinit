@@ -1,6 +1,6 @@
 install() {
   # base filesystem structure
-  for dir in proc sys dev bin sbin usr{,/bin,/lib,/sbin} run; do
+  for dir in proc sys dev {,s}bin usr{,/bin,/lib,/sbin} run; do
     add_dir /$dir
   done
 
@@ -9,20 +9,14 @@ install() {
   add_file /etc/modprobe.d/usb-load-ehci-first.conf
 
   # udev rules
-  for rules in 50-firmware.rules 50-udev-default.rules 60-persistent-storage.rules 80-drivers.rules; do
+  for rules in {50-firmware,50-udev-default,60-persistent-storage,80-drivers}.rules; do
     add_file /lib/udev/rules.d/$rules
   done
 
   # udev tools
-  for tool in firmware ata_id path_id scsi_id usb_id; do
+  for tool in firmware {ata,path,scsi,usb}_id; do
     add_file /lib/udev/$tool
   done
-
-  # devices
-  add_device /dev/null c 1 3
-  add_device /dev/zero c 1 5
-  add_device /dev/console c 5 1
-  add_device /dev/mem c 1 1
 
   # necessary binary tools
   add_binary /lib/initcpio/cinit /init
@@ -35,7 +29,7 @@ install() {
 }
 
 help() {
-cat <<HELPEOF
+  cat <<HELPEOF
   This hook sets up all initial directories and installs base utilities,
   including udev.
 HELPEOF
