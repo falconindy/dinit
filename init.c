@@ -454,6 +454,8 @@ static void run_hooks(void) { /* {{{ */
       forkexecwait(argv);
     }
   }
+
+  fclose(fp);
 } /* }}} */
 
 static void check_for_break(void) { /* {{{ */
