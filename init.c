@@ -562,6 +562,11 @@ static void kill_udev(pid_t pid) { /* {{{ */
     kill(pid, SIGTERM);
   }
 
+  /* bitch, please */
+  if (access(exe, F_OK) == 0) {
+    kill(pid, SIGKILL);
+  }
+
   free(exe);
 } /*}}}*/
 
