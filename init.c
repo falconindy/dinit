@@ -456,6 +456,15 @@ static void run_hooks(void) { /* {{{ */
   }
 } /* }}} */
 
+static void check_for_break(void) { /* {{{ */
+  if (getenv("break") == NULL) {
+    return;
+  }
+
+  msg("break requested. type 'exit' or 'logout' to resume\n");
+  start_rescue_shell();
+} /* }}} */
+
 static void wait_for_root(void) { /* {{{ */
   char *rootdelay, *root;
   int found = 0, delay = 0;
@@ -628,6 +637,7 @@ int main(int argc, char *argv[]) {
   trigger_udev_events();     /* read and process uevent queue */
   disable_hooks();           /* delete hooks specified on cmdline */
   run_hooks();               /* run remaining hooks */
+  check_for_break();         /* did the user request a shell? */
   wait_for_root();           /* ensure that root shows up */
   mount_root();              /* this better work... */
   init = find_init();        /* mounted something, now find init */
