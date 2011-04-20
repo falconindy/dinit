@@ -318,7 +318,7 @@ static void disable_modules(void) { /* {{{ */
 } /* }}} */
 
 static pid_t launch_udev(void) { /* {{{ */
-  char *udev_argv[] = { UDEVD_PATH, UDEVD_PATH, "--resolve-names=never", NULL };
+  char *argv[] = { UDEVD_PATH, "--resolve-names=never", NULL };
   pid_t pid;
 
   if (access(UDEVD_PATH, X_OK) != 0) {
@@ -334,7 +334,7 @@ static pid_t launch_udev(void) { /* {{{ */
   }
 
   if (pid == 0) {
-    execv(UDEVD_PATH, udev_argv);
+    execv(argv[0], argv);
     perror("exec: " UDEVD_PATH);
   }
 
