@@ -473,10 +473,11 @@ static void wait_for_root(void) { /* {{{ */
 
   rootdelay = getenv("rootdelay");
   if (rootdelay) {
+    /* atoi is "safe" here because 0 is invalid */
     delay = atoi(rootdelay);
   }
 
-  if (delay == 0) {
+  if (delay <= 0) {
     delay = 10;
   }
 
