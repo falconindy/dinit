@@ -25,10 +25,12 @@
 #define err(...) {fprintf(stderr, "error: " __VA_ARGS__);}
 #define die(...) {err(__VA_ARGS__); _exit(1);}
 
-#define TMPFS_FLAGS   MS_NOEXEC|MS_NODEV|MS_NOSUID
-#define NEWROOT       "/new_root"
-#define UDEVD_PATH    "/sbin/udevd"
 #define CMDLINE_SIZE  2048       /* from arch/x86/include/asm/setup.h */
+#define TMPFS_FLAGS   MS_NOEXEC|MS_NODEV|MS_NOSUID
+
+#define NEWROOT       "/new_root"
+#define UDEVD         "/sbin/udevd"
+#define UDEVADM       "/sbin/udevadm"
 
 int rootflags = 0;
 int quiet = 0;
@@ -318,10 +320,10 @@ static void disable_modules(void) { /* {{{ */
 } /* }}} */
 
 static pid_t launch_udev(void) { /* {{{ */
-  char *argv[] = { UDEVD_PATH, "--resolve-names=never", NULL };
+  char *argv[] = { UDEVD, "--resolve-names=never", NULL };
   pid_t pid;
 
-  if (access(UDEVD_PATH, X_OK) != 0) {
+  if (access(UDEVD, X_OK) != 0) {
     return 0;
   }
 
@@ -335,7 +337,7 @@ static pid_t launch_udev(void) { /* {{{ */
 
   if (pid == 0) {
     execv(argv[0], argv);
-    perror("exec: " UDEVD_PATH);
+    perror("exec: " UDEVD);
   }
 
   return pid;
@@ -540,6 +542,7 @@ static int set_init(void) { /* {{{ */
 } /* }}} */
 
 static void kill_udev(pid_t pid) { /* {{{ */
+  char *argv[] = { UDEVADM, "control", "--stop-exec-queue", NULL };
   char path[PATH_MAX];
   char *exe;
 
@@ -547,10 +550,13 @@ static void kill_udev(pid_t pid) { /* {{{ */
     return;
   }
 
+  /* pause event queue to facilitate shutdown */
+  forkexecwait(argv);
+
   snprintf(path, PATH_MAX, "/proc/%d/exe", pid);
   exe = realpath(path, NULL);
 
-  if (strcmp(exe, UDEVD_PATH) == 0) {
+  if (strcmp(exe, UDEVD) == 0) {
     kill(pid, SIGTERM);
   }
 
