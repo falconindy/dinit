@@ -1,6 +1,6 @@
 install() {
   # base filesystem structure
-  for dir in proc sys dev {,s}bin usr{,/bin,/lib,/sbin} run; do
+  for dir in proc sys dev {,s}bin usr{,/bin,/lib,/sbin} run new_root; do
     add_dir /$dir
   done
 

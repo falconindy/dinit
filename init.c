@@ -214,9 +214,6 @@ static void mount_setup(void) { /* {{{ */
   mount("sys", "/sys", "sysfs", TMPFS_FLAGS, NULL);
   mount("tmpfs", "/run", "tmpfs", TMPFS_FLAGS, "mode=1777,size=10M");
 
-  /* mountpoint for our eventual real root */
-  mkdir(NEWROOT, 0755);
-
   /* ENODEV returned on non-existant FS */
   ret = mount("udev", "/dev", "devtmpfs", MS_NOSUID, "mode=0755,size=10M");
   if (ret == -1 && errno == ENODEV) {
