@@ -90,23 +90,31 @@ static char *concat_path(const char *path, const char *filename) { /* {{{ */
 static char *sanitize_var(char *var) { /* {{{ */
   char *p;
 
+  /* special attention to first letter */
   p = var;
   if (!(isalpha(*p) || *p == '_')) {
     /* invalid var name, can't use this */
     return NULL;
   }
 
-  p++;
-  while (*p) {
-    switch (*p) {
-      case '-': /* fallthrough */
-      case '.':
-        *p = '_';
-        break;
-      case '=': /* don't touch anything past this */
-        return var;
+  while (*++p) {
+    if (isalnum((unsigned char)*p) || *p == '_') {
+      /* valid character */
+      continue;
     }
-    p++;
+
+    if (*p == '=') {
+      /* stop here, don't mangle the values */
+      return var;
+    }
+
+    if (*p == '.' || *p == '-') {
+      /* sanitizable */
+      *p = '_';
+    } else {
+      /* gfy */
+      return NULL;
+    }
   }
 
   return var;
