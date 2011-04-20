@@ -196,6 +196,15 @@ static char *probe_fstype(const char *devname) { /* {{{ */
   return fstype;
 } /* }}} */
 
+static void movemount(const char *src, const char *dest) { /* {{{ */
+  /* move the mount if it exists on the real root, otherwise get rid of it */
+  if (access(dest, F_OK) == 0) {
+    mount(src, dest, NULL, MS_MOVE,  NULL);
+  } else {
+    umount2(src, MNT_DETACH);
+  }
+} /* }}} */
+
 /* meat */
 static void mount_setup(void) { /* {{{ */
   int ret;
@@ -665,10 +674,10 @@ int main(int argc, char *argv[]) {
 
   kill_udev(udevpid);        /* shutdown udev in prep switch_root  */
 
-  /* move mount points (fstype, options and flags are ignored) */
-  mount("/proc", NEWROOT "/proc", NULL, MS_MOVE,  NULL);
-  mount("/sys", NEWROOT "/sys", NULL, MS_MOVE, NULL);
-  mount("/run", NEWROOT "/run", NULL, MS_MOVE, NULL);
+  /* migrate to the new root */
+  movemount("/proc", NEWROOT "/proc");
+  movemount("/sys", NEWROOT "/sys");
+  movemount("/run", NEWROOT "/run");
 
   argv[0] = getenv("init");
   switch_root(argv);
