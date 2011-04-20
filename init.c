@@ -407,6 +407,11 @@ static void load_extra_modules(void) { /* {{{ */
 static void trigger_udev_events(void) { /* {{{ */
   char *argv[] = { "/sbin/udevadm", "trigger", "--action=add", NULL };
 
+  /* don't assume we have udev available */
+  if (access(UDEVADM, X_OK) != 0) {
+    return;
+  }
+
   msg("triggering udev events...\n");
   forkexecwait(argv);
 } /* }}} */
