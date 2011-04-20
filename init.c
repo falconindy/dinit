@@ -47,12 +47,8 @@ static void forkexecwait(char **argv) { /* {{{ */
   }
 
   if (pid == 0) {
-    int errsv;
     execv(argv[0], argv);
-    errsv = errno;
-    fprintf(stderr, "failed to launch %s\n", argv[0]);
-    errno = errsv;
-    perror("");
+    fprintf(stderr, "failed to launch %s: %s\n", argv[0], strerror(errno));
   }
 
   /* block for process exit */
