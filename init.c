@@ -40,10 +40,10 @@ static int forkexecwait(char **argv) { /* {{{ */
   pid_t pid;
   int statloc;
 
-  pid = fork();
+  pid = vfork();
   if (pid == -1) {
     perror("fork");
-    return;
+    return errno;
   }
 
   if (pid == 0) {
@@ -331,7 +331,7 @@ static pid_t launch_udev(void) { /* {{{ */
 
   msg("Starting udev...\n");
 
-  pid = fork();
+  pid = vfork();
   if (pid == -1) {
     perror("fork");
     return 1;
