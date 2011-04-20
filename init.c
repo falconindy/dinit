@@ -36,7 +36,7 @@ int rootflags = 0;
 int quiet = 0;
 
 /* utility */
-static void forkexecwait(char **argv) { /* {{{ */
+static int forkexecwait(char **argv) { /* {{{ */
   pid_t pid;
   int statloc;
 
@@ -48,13 +48,19 @@ static void forkexecwait(char **argv) { /* {{{ */
 
   if (pid == 0) {
     execv(argv[0], argv);
-    fprintf(stderr, "failed to launch %s: %s\n", argv[0], strerror(errno));
+    fprintf(stderr, "exec: %s: %s\n", argv[0], strerror(errno));
+    _exit(errno); /* avoid flushing streams */
   }
 
   /* block for process exit */
   waitpid(pid, &statloc, 0);
 
-  return;
+  if (WIFEXITED(statloc) > 0) {
+    return WEXITSTATUS(statloc);
+  }
+
+  /* should do a better job of this */
+  return 1;
 } /* }}} */
 
 static char *concat_path(const char *path, const char *filename) { /* {{{ */
@@ -334,6 +340,7 @@ static pid_t launch_udev(void) { /* {{{ */
   if (pid == 0) {
     execv(argv[0], argv);
     perror("exec: " UDEVD);
+    _exit(errno);
   }
 
   return pid;
@@ -622,7 +629,7 @@ static int switch_root(char *argv[]) { /* {{{ */
   err("failed to execute '%s'\n", argv[0]);
   fprintf(stderr, ":: This is the end. Something has gone terribly wrong.\n"
                   ":: Please file a detailed bug report.\n");
-  _exit(EXIT_FAILURE);
+  exit(EXIT_FAILURE);
 } /* }}} */
 
 int main(int argc, char *argv[]) {
