@@ -455,6 +455,8 @@ static void run_hooks(void) { /* {{{ */
       char *argv[] = { path, path, NULL };
       forkexecwait(argv);
     }
+
+    break;
   }
 
   fclose(fp);
