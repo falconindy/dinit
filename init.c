@@ -25,7 +25,7 @@
 #define err(...) {fprintf(stderr, "error: " __VA_ARGS__);}
 #define die(...) {err(__VA_ARGS__); _exit(1);}
 
-#define CMDLINE_SIZE  2048       /* from arch/x86/include/asm/setup.h */
+#define CMDLINE_SIZE  257       /* 256 max cmdline len + NULL */
 #define TMPFS_FLAGS   MS_NOEXEC|MS_NODEV|MS_NOSUID
 
 #define NEWROOT       "/new_root"
