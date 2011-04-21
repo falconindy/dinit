@@ -493,40 +493,38 @@ static void check_for_break(void) { /* {{{ */
   start_rescue_shell();
 } /* }}} */
 
-static void wait_for_root(void) { /* {{{ */
+static int wait_for_root(void) { /* {{{ */
   char *rootdelay, *root;
-  int found = 0, delay = 0;
+  int delay = 0;
 
+  root = getenv("root");
   rootdelay = getenv("rootdelay");
+
+  if (strncmp(root, "/dev/", 5) != 0) {
+    return 1; /* not a path, so it won't be found */
+  }
+
   if (rootdelay) {
-    /* atoi is "safe" here because 0 is invalid */
+    /* atoi is "safe" here because delay<=0 is invalid */
     delay = atoi(rootdelay);
   }
 
   if (delay <= 0) {
-    delay = 10;
+    delay = 100; /* 100 1/10ths of a second */
   }
 
-  root = getenv("root");
-  if (!root) {
-    die("no root device was specified on command line!\n");
-  }
-
-  msg("waiting up to %d seconds for %s ...\n", delay, root);
+  msg("waiting up to %.2g seconds for %s ...\n", (float)delay / 10, root);
   while (delay--) {
-    if (access(root, R_OK) == 0) {
-      found = 1;
-      break;
+    if (access(root, F_OK) == 0) {
+      struct stat st;
+      if (stat(root, &st) == 0 && S_ISBLK(st.st_mode)) {
+        return 0; /* found */
+      }
     }
-    sleep(1);
+    usleep(100000); /* .1 seconds */
   }
 
-  if (!found) {
-    err("root didn't show up! You are on your own, good luck\n");
-    start_rescue_shell();
-    msg("continuing... this will probably fail\n");
-  }
-
+  return 1; /* not found */
 } /* }}} */
 
 static int mount_root(void) { /* {{{ */
@@ -600,20 +598,11 @@ static int switch_root(char *argv[]) { /* {{{ */
 
   /* this is mostly taken from busybox's util_linux/switch_root.c */
 
-  /* change to new root directory and verify it's a different fs. In practice,
-   * this should never be a concern as we catch mount failing in mount_root */
   chdir(NEWROOT);
-  stat("/", &st); 
+  stat("/", &st);
   rootdev = st.st_dev;
-  stat(".", &st);
 
-  if (st.st_dev == rootdev) {
-    die("nothing was mounted on " NEWROOT "!\n");
-  }
-
-  /* Additional sanity checks: we're about to rm -rf /, so be REALLY SURE we
-   * mean it. I could make this a CONFIG option, but I would get email from all
-   * the people who WILL destroy their filesystems. */
+  /* sanity checks: we're about to rm -rf / ! */
   if (stat("/init", &st) != 0 || !S_ISREG(st.st_mode)) {
     die("/init not found or not a regular file\n");
   }
