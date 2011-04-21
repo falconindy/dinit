@@ -3,11 +3,9 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <getopt.h>
 #include <limits.h>
 #include <linux/magic.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +34,36 @@ int rootflags = 0;
 int quiet = 0;
 
 /* utility */
+static dev_t hex2dev(char *hexstring) { /* {{{ */
+  char *endptr;
+  char hexmajor[3], hexminor[3];
+  long major, minor;
+  size_t len;
+
+  len = strlen(hexstring);
+  if (len > 4) {
+    return 1;
+  }
+
+  /* 2 less than the length, plus a NULL */
+  snprintf(hexmajor, len - 2 + 1, "%s", hexstring);
+
+  /* leave off after the major, 2 chars plus a NULL */
+  snprintf(hexminor, 3, "%s", hexstring + len - 2);
+
+  major = strtol(hexmajor, &endptr, 16);
+  if (!endptr) {
+    return makedev(0, 0);
+  }
+
+  minor = strtol(hexminor, &endptr, 16);
+  if (!endptr) {
+    return makedev(0, 0);
+  }
+
+  return makedev(major, minor);
+} /* }}} */
+
 static int forkexecwait(char **argv) { /* {{{ */
   pid_t pid;
   int statloc;
@@ -527,6 +555,52 @@ static int wait_for_root(void) { /* {{{ */
   return 1; /* not found */
 } /* }}} */
 
+static void try_create_root(void) { /* {{{ */
+  dev_t rootdev;
+  char *root;
+
+  root = getenv("root");
+
+  if (strncmp(root, "/dev/", 5) == 0) {
+    FILE *fp;
+    char path[PATH_MAX], majmin[8];
+
+    snprintf(path, PATH_MAX, "/sys/class/block/%s", root + 6);
+    if (*path && access(path, R_OK) == 0) {
+      fp = fopen(path, "r"); /* this will not fail */
+      fgets(majmin, 8, fp);
+      fclose(fp);
+      setenv("root", majmin, 1);
+    }
+  }
+
+  setenv("root", "/dev/root", 1);
+
+  /* intentional fallthrough from above */
+  if (strchr(root, ':')) {
+    /* major/minor encoding */
+    char *major, *minor;
+
+    major = minor = root;
+    strsep(&minor, ":");
+    rootdev = makedev(atoi(major), atoi(minor));
+  } else if (strtol(root, NULL, 16) > 0) {
+    rootdev = hex2dev(root);
+  } else {
+    /* uhhhhhhhhhhhhh .... ?? */
+    err("unknown device: '%s'. You can try to create "
+        "/dev/root yourself!\n", root);
+    start_rescue_shell();
+    printf("continuing... chance of failure = high\n");
+    return;
+  }
+
+  if (mknod("/dev/root", 0660|S_IFBLK, rootdev) != 0) {
+    perror("failed to create root device");
+  }
+
+} /* }}} */
+
 static int mount_root(void) { /* {{{ */
   char *root, *fstype;
   int ret = 1;
@@ -645,28 +719,31 @@ int main(int argc, char *argv[]) {
 
   (void)argc; /* poor unloved argc */
 
-  mount_setup();             /* create early tmpfs mountpoints */
-  put_cmdline();             /* parse cmdline and set environment */
-  disable_modules();         /* blacklist modules passed in on cmdline */
-  udevpid = launch_udev();   /* try to launch udev */
-  load_extra_modules();      /* load modules passed in on cmdline */
-  trigger_udev_events();     /* read and process uevent queue */
-  disable_hooks();           /* delete hooks specified on cmdline */
-  run_hooks();               /* run remaining hooks */
-  check_for_break();         /* did the user request a shell? */
-  wait_for_root();           /* ensure that root shows up */
+  mount_setup();                /* create early tmpfs mountpoints */
+  put_cmdline();                /* parse cmdline and set environment */
+  disable_modules();            /* blacklist modules passed in on cmdline */
+  udevpid = launch_udev();      /* try to launch udev */
+  load_extra_modules();         /* load modules passed in on cmdline */
+  trigger_udev_events();        /* read and process uevent queue */
+  disable_hooks();              /* delete hooks specified on cmdline */
+  run_hooks();                  /* run remaining hooks */
+  check_for_break();            /* did the user request a shell? */
 
-  if (mount_root() != 0) {   /* this is what we're here for */
+  if (wait_for_root() != 0) {
+    try_create_root();          /* ensure that root shows up */
+  }
+
+  if (mount_root() != 0) {      /* this is what we're here for */
     err("failed to mount the root device: %s\n", strerror(errno));
     start_rescue_shell();
   }
 
-  if (set_init() != 0) {     /* mounted something, now find init */
+  if (set_init() != 0) {        /* mounted something, now find init */
     err("root device was mounted, but %s does not exist!\n", getenv("init"));
     start_rescue_shell();
   }
 
-  kill_udev(udevpid);        /* shutdown udev in prep switch_root  */
+  kill_udev(udevpid);           /* shutdown udev in prep switch_root  */
 
   /* migrate to the new root */
   movemount("/proc", NEWROOT "/proc");
