@@ -91,30 +91,6 @@ static int forkexecwait(char **argv) { /* {{{ */
   return 1;
 } /* }}} */
 
-static char *concat_path(const char *path, const char *filename) { /* {{{ */
-  const char *ss, *lc;
-  char *concat;
-  int ret;
-
-  if (!path) {
-    path = "";
-  }
-
-  for (ss = path; *ss; ss++);
-  lc = (*--ss == '/' ? "" : "/");
-
-  while (*filename == '/') {
-    filename++;
-  }
-
-  ret = asprintf(&concat, "%s%s%s", path, lc, filename);
-  if (ret < 0) {
-    return NULL;
-  }
-
-  return concat;
-} /* }}} */
-
 static char *sanitize_var(char *var) { /* {{{ */
   char *p;
 
@@ -148,41 +124,37 @@ static char *sanitize_var(char *var) { /* {{{ */
   return var;
 } /* }}} */
 
-static void delete_contents(const char *directory, dev_t rootdev) { /* {{{ */
+static void delete_contents(char *path, dev_t rootdev) { /* {{{ */
   DIR *dir;
-  struct dirent *d;
+  char name[PATH_MAX];
+  struct dirent *dp;
   struct stat st;
 
   /* Don't descend into other filesystems */
-  if (lstat(directory, &st) || st.st_dev != rootdev) {
+  if (lstat(path, &st) || st.st_dev != rootdev) {
     return;
   }
 
   /* Recursively delete the contents of directories */
   if (S_ISDIR(st.st_mode)) {
-    dir = opendir(directory);
+    dir = opendir(path);
     if (dir) {
-      while ((d = readdir(dir))) {
-        char *newdir = d->d_name;
-
-        /* Skip . and .. */
-        if (strcmp(newdir, ".") == 0 || strcmp(newdir, "..") == 0) {
-          continue;
+      while ((dp = readdir(dir))) {
+        if (dp->d_ino) {
+          if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
+            snprintf(name, PATH_MAX, "%s/%s", path, dp->d_name);
+            delete_contents(name, rootdev);
+          }
         }
-
-        /* Recurse to delete contents */
-        newdir = concat_path(directory, newdir);
-        delete_contents(newdir, rootdev);
-        free(newdir);
       }
       closedir(dir);
 
-      /* Directory should now be empty, zap it */
-      rmdir(directory);
+      /* dir should now be empty, zap it */
+      rmdir(path);
     }
   } else {
-    /* It wasn't a directory, zap it */
-    unlink(directory);
+    /* It wasn't a dir, zap it */
+    unlink(path);
   }
 } /* }}} */
 
