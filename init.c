@@ -27,6 +27,7 @@
 #define TMPFS_FLAGS   MS_NOEXEC|MS_NODEV|MS_NOSUID
 
 #define NEWROOT       "/new_root"
+#define BUSYBOX       "/bin/busybox"
 #define UDEVD         "/sbin/udevd"
 #define UDEVADM       "/sbin/udevadm"
 
@@ -159,8 +160,12 @@ static void delete_contents(char *path, dev_t rootdev) { /* {{{ */
 } /* }}} */
 
 static void start_rescue_shell(void) { /* {{{ */
-  char *bboxinstall[] = { "/bin/busybox", "--install", NULL };
-  char *bboxlaunch[] = { "/bin/busybox", "ash", NULL };
+  char *bboxinstall[] = { BUSYBOX, "--install", NULL };
+  char *bboxlaunch[] = { BUSYBOX, "ash", NULL };
+
+  if (access(BUSYBOX, X_OK) != 0) {
+    return;
+  }
 
   /* install symlinks */
   forkexecwait(bboxinstall);
