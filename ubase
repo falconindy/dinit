@@ -24,6 +24,7 @@ install() {
   for sbin in /sbin/{modprobe,blkid,udevd,udevadm}; do
     add_binary $sbin
   done
+  add_symlink2 /lib/udev/load-modules.sh /sbin/modprobe
 
   add_file "$CONFIG" /config
 }
