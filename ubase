@@ -19,7 +19,7 @@ install() {
   done
 
   # necessary binary tools
-  add_binary /lib/initcpio/cinit /init
+  add_binary /lib/initcpio/dinit /init
   add_binary /lib/initcpio/busybox /bin/busybox
   for sbin in /sbin/{modprobe,blkid,udevd,udevadm}; do
     add_binary $sbin

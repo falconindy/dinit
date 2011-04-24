@@ -11,7 +11,7 @@ install() {
   done
 
   # necessary binaries
-  add_binary /lib/initcpio/cinit /init
+  add_binary /lib/initcpio/dinit /init
   add_binary /sbin/modprobe
 
   add_file "$CONFIG" /config
