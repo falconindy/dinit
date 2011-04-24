@@ -19,8 +19,7 @@ install() {
 
 help() {
   cat <<HELPEOF
-  This hook sets up all initial directories and installs base utilities,
-  including udev.
+  This hook sets up very little.
 HELPEOF
 }
 
