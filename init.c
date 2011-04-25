@@ -515,10 +515,12 @@ static int wait_for_root(void) { /* {{{ */
   }
 
   if (delay <= 0) {
-    delay = 100; /* 100 1/10ths of a second */
+    delay = 10;
   }
 
-  msg("waiting up to %.2g seconds for %s ...\n", (float)delay / 10, root);
+  msg("waiting up to %d seconds for %s ...\n", delay, root);
+
+  delay *= 10; /* we sleep in centiseconds */
   while (delay--) {
     if (access(root, F_OK) == 0) {
       struct stat st;
