@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
 #include <sys/wait.h>
@@ -424,15 +425,28 @@ static void load_extra_modules(void) { /* {{{ */
 } /* }}} */
 
 static void trigger_udev_events(void) { /* {{{ */
-  char *argv[] = { "/sbin/udevadm", "trigger", "--action=add", NULL };
+  char *trigger_argv[] = { "/sbin/udevadm", "trigger", "--action=add", NULL };
+  char *settle_argv[] = { "/sbin/udevadm", "settle", "--timeout=10", NULL };
+  struct timeval tv[2];
+  long time_ms = 0; /* processing time in ms */
 
   /* don't assume we have udev available */
   if (access(UDEVADM, X_OK) != 0) {
     return;
   }
 
-  msg("triggering udev events...\n");
-  forkexecwait(argv);
+  msg("triggering uevents...\n");
+
+  gettimeofday(&tv[0], NULL);
+  forkexecwait(trigger_argv);
+  forkexecwait(settle_argv);
+  gettimeofday(&tv[1], NULL);
+
+  time_ms += (tv[1].tv_sec - tv[0].tv_sec) * 1000; /* s => ms */
+  time_ms += (tv[1].tv_usec - tv[0].tv_usec) / 1000; /* us => ms */
+
+  msg("finished udev processing in %ldms\n", time_ms);
+
 } /* }}} */
 
 static void disable_hooks(void) { /* {{{ */
